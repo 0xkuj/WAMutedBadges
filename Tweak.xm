@@ -21,7 +21,7 @@ static SBIcon *icon;
 static void writeBadges(NSString *value) {
 	NSMutableDictionary *pref = [NSMutableDictionary dictionaryWithContentsOfFile:WA_MUTED_BADGES_PREF];
 	[pref setValue:value forKey:@"badgeValue"];
-    [pref writeToFile:WA_MUTED_BADGES_PREF atomically:YES];
+	[pref writeToFile:WA_MUTED_BADGES_PREF atomically:YES];
 }
 
 static long long getBadges() {
