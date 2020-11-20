@@ -1,0 +1,9 @@
+Package: com.0xkuj.wamutedbadges
+Name: WA Muted Badges
+Depends: mobilesubstrate
+Version: 1.0
+Architecture: iphoneos-arm
+Description: Shows a badge on WhatsApp icon with your muted conversations, just like old days
+Maintainer: 0xkuj
+Author: 0xkuj
+Section: Tweaks
