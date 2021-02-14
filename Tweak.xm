@@ -1,5 +1,4 @@
-#import <SpringBoard/SBIcon.h>
-
+#import <Foundation/Foundation.h>
 #define WA_MUTED_BADGES_PREF @"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist"
 
 @interface WAChatSession : NSObject
@@ -11,8 +10,18 @@
 @property (nonatomic,retain) NSString* fromJID;
 @end
 
-@interface UIApplication (wamutedbadges)
+@interface UIApplication
 @property (nonatomic,readonly) long long applicationState; 
++(id)sharedApplication;
+-(void)setApplicationIconBadgeNumber:(long long)arg1 ;
+@end
+
+@interface SBIcon
+-(long long)badgeValue;
+@end
+
+@interface NSString ()
+-(bool)containsSubstring:(id)arg1 ;
 @end
 
 static SBIcon *icon;
@@ -21,7 +30,7 @@ static SBIcon *icon;
 static void writeBadges(NSString *value) {
 	NSMutableDictionary *pref = [NSMutableDictionary dictionaryWithContentsOfFile:WA_MUTED_BADGES_PREF];
 	[pref setValue:value forKey:@"badgeValue"];
-	[pref writeToFile:WA_MUTED_BADGES_PREF atomically:YES];
+    [pref writeToFile:WA_MUTED_BADGES_PREF atomically:YES];
 }
 
 static long long getBadges() {
@@ -29,6 +38,16 @@ static long long getBadges() {
 	return [[pref objectForKey:@"badgeValue"] longLongValue];
 }
 
+/* you can ignore this function and remove prefs from makefile if you want - this is for private use */
+static BOOL shouldIgnoreGroup(NSString* groupJID) {
+	NSMutableArray* ignoredGroups = [NSMutableArray arrayWithArray:[[[NSMutableDictionary alloc] initWithContentsOfFile:WA_MUTED_BADGES_PREF] objectForKey:@"items"]];
+	for (id dict in ignoredGroups) {
+		if ([groupJID containsSubstring:[dict objectForKey:@"selected"]]) {
+			return YES;
+		}
+	}
+	return NO;
+}
 /* hook the icon to get its badge value later */
 %hook SBIcon
 -(id)init{
@@ -40,18 +59,17 @@ static long long getBadges() {
 %hook WAChatSessionTransaction
 - (void)trackReceivedMessage:(id)arg1{
 	%orig;
-
-	/* messages dont count when app is active, skip */
-	if ([[UIApplication sharedApplication] applicationState] == 0) {
+	/* messages dont count when app is active, skip or if contained in prefs (remove prefs from makefile if you want - this is for private usage) */
+	if ([[NSClassFromString(@"UIApplication") sharedApplication] applicationState] == 0  || shouldIgnoreGroup(((WAMessage*)arg1).fromJID) == YES) {
 		return;
 	}
-	
+
 	dispatch_async(dispatch_get_main_queue(), ^{
 		if(((WAMessage*)arg1).chatSession.sessionType != 3){
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.01 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
 			long long crntBadges = getBadges() + [icon badgeValue] + 1;
 			writeBadges([NSString stringWithFormat:@"%lld", crntBadges]);
-			[[UIApplication sharedApplication] setApplicationIconBadgeNumber:crntBadges];
+			[[NSClassFromString(@"UIApplication") sharedApplication] setApplicationIconBadgeNumber:crntBadges];
 			});
 		}
 	});
