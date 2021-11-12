@@ -5,15 +5,11 @@
 @property(nonatomic) short sessionType;
 @end
 
-@interface WAMessage : NSObject
+@interface WAMessage : NSObject {
+	WAMessage* _message;
+}
 @property(readonly, nonatomic) WAChatSession *chatSession;
 @property (nonatomic,retain) NSString* fromJID;
-@end
-
-@interface UIApplication
-@property (nonatomic,readonly) long long applicationState; 
-+(id)sharedApplication;
--(void)setApplicationIconBadgeNumber:(long long)arg1 ;
 @end
 
 @interface SBIcon
@@ -24,8 +20,7 @@
 -(bool)containsSubstring:(id)arg1 ;
 @end
 
-static SBIcon *icon;
-
+static int messageCount;
 /* writing the badges into file so we can always know what is the current badge count */
 static void writeBadges(NSString *value) {
 	NSMutableDictionary *pref = [NSMutableDictionary dictionaryWithContentsOfFile:WA_MUTED_BADGES_PREF];
@@ -48,31 +43,24 @@ static BOOL shouldIgnoreGroup(NSString* groupJID) {
 	}
 	return NO;
 }
-/* hook the icon to get its badge value later */
-%hook SBIcon
--(id)init{
-	return icon = %orig;
-}
-%end
 
-/* every message outside and inside WA reaches here */
 %hook WAChatSessionTransaction
-- (void)trackReceivedMessage:(id)arg1{
-	%orig;
+- (BOOL)shouldMuteMessage:(id)arg1 {
 	/* messages dont count when app is active, skip or if contained in prefs (remove prefs from makefile if you want - this is for private usage) */
 	if ([[NSClassFromString(@"UIApplication") sharedApplication] applicationState] == 0  || shouldIgnoreGroup(((WAMessage*)arg1).fromJID) == YES) {
-		return;
+		return %orig;
 	}
-
 	dispatch_async(dispatch_get_main_queue(), ^{
 		if(((WAMessage*)arg1).chatSession.sessionType != 3){
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.01 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-			long long crntBadges = getBadges() + [icon badgeValue] + 1;
+			long long crntBadges = getBadges() + (++messageCount);
 			writeBadges([NSString stringWithFormat:@"%lld", crntBadges]);
 			[[NSClassFromString(@"UIApplication") sharedApplication] setApplicationIconBadgeNumber:crntBadges];
 			});
 		}
 	});
+
+	return %orig;
 }
 %end
 
@@ -80,10 +68,12 @@ static BOOL shouldIgnoreGroup(NSString* groupJID) {
 %hook WhatsAppAppDelegate
 - (_Bool)application:(id)arg1 didFinishLaunchingWithOptions:(id)arg2{
 	writeBadges(@"0");
+	messageCount=0;
 	return %orig;
 }
 - (void)applicationDidBecomeActive:(id)arg1{
 	%orig;
 	writeBadges(@"0");
+	messageCount=0;
 }
 %end
