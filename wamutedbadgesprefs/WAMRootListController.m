@@ -1,4 +1,5 @@
 #include "WAMRootListController.h"
+#pragma GCC diagnostic ignored "-Wunguarded-availability-new"
 
 NSMutableDictionary *preferences;
 NSMutableArray *rememberedAlerts;
