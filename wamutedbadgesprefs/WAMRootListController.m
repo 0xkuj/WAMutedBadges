@@ -1,5 +1,6 @@
 #include "WAMRootListController.h"
 #pragma GCC diagnostic ignored "-Wunguarded-availability-new"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 NSMutableDictionary *preferences;
 NSMutableArray *rememberedAlerts;
@@ -8,33 +9,37 @@ UITextField *groupJID;
 @implementation WAMRootListController
 
 - (id)readPreferenceValue:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/User/Library/Preferences/%@.plist", specifier.properties[@"defaults"]];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    return (settings[specifier.properties[@"key"]]) ?: specifier.properties[@"default"];
+  NSString *path = [NSString stringWithFormat:ROOT_PATH_NS(@"/var/mobile/Library/Preferences/%@.plist"), specifier.properties[@"defaults"]];
+  NSMutableDictionary *settings = [NSMutableDictionary dictionary];
+  [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
+  return (settings[specifier.properties[@"key"]]) ?: specifier.properties[@"default"];
 }
 
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/User/Library/Preferences/com.0xkuj.wamutedbadges.plist"];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    [settings setObject:value forKey:specifier.properties[@"key"]];
-    [settings writeToFile:path atomically:YES];
-    CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
-    if (notificationName) {
-        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
-    }
+  NSString *path = [NSString stringWithFormat: ROOT_PATH_NS(@"/var/mobile/Library/Preferences/%@.plist"), specifier.properties[@"defaults"]];
+  NSMutableDictionary *settings = [NSMutableDictionary dictionary];
+  [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
+  [settings setObject:value forKey:specifier.properties[@"key"]];
+  [settings writeToFile:path atomically:YES];
+  CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
+  if (notificationName) {
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
+  }
 }
 
 
 - (NSArray *)specifiers {
-    _specifiers = [self loadSpecifiersFromPlistName:@"../../../var/mobile/Library/Preferences/com.0xkuj.wamutedbadges" target:self] ?: [[NSMutableArray alloc] init];
+    NSMutableDictionary *masterPreferences = [NSMutableDictionary dictionaryWithContentsOfFile:GENERAL_PREFS];
+     NSLog(@"omriku read prefs[itmes]]: %@", masterPreferences[@"items"]);
+
+    _specifiers = [self loadSpecifiersFromPlistName:[NSString stringWithFormat:@"../../../var/mobile/Library/Preferences/com.0xkuj.wamutedbadges"] target:self] ?: [[NSMutableArray alloc] init];
     self.navigationItem.title = @"WAM";
 
     for (PSSpecifier *specifier in _specifiers)
     {
         [specifier setProperty:NSStringFromSelector(@selector(removedSpecifier:)) forKey:PSDeletionActionKey];
     }
+
 	PSSpecifier *button = [PSSpecifier preferenceSpecifierNamed:@"Add" target:self set:NULL get:NULL detail:nil cell:PSButtonCell edit:nil];
     [button setButtonAction:@selector(add)];
 	[_specifiers insertObject:button atIndex:0];
@@ -43,7 +48,7 @@ UITextField *groupJID;
 }
 
 -(void)add{
-    preferences = [NSMutableDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist"] ?: [[NSMutableDictionary alloc] init];
+    preferences = [NSMutableDictionary dictionaryWithContentsOfFile:GENERAL_PREFS] ?: [[NSMutableDictionary alloc] init];
     rememberedAlerts = [preferences objectForKey:@"items"] ?: [[NSMutableArray alloc] init];
 
     UIAlertController * alertController = [UIAlertController alertControllerWithTitle: @"Add group"
@@ -72,21 +77,20 @@ UITextField *groupJID;
 
        NSDictionary *currentAlert = @{ @"cell" : @"PSStaticTextCell", @"title" : @"0xkuj", @"label" : [NSString stringWithFormat: @"Group: %@ JID: %@", pt1,pt2], @"selected" : [NSString stringWithFormat: @"%@", pt2] };
 
+        NSLog(@"omriku wtf cell?? %@", currentAlert);
        if (![rememberedAlerts containsObject:currentAlert])
        {
            [rememberedAlerts addObject:currentAlert];
            [preferences setValue:rememberedAlerts forKey:@"items"];
 
            NSError *error;
-           if (![preferences writeToURL:[NSURL fileURLWithPath:@"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist"] error:&error])
+           if (![preferences writeToURL:[NSURL fileURLWithPath:ROOT_PATH_NS(@"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist")] error:&error])
            {
                //[[[UIAlertView alloc] initWithTitle:@"Error" message:[@"Failed to save settings. Error:\n" stringByAppendingString:error.localizedDescription] delegate:nil cancelButtonTitle:@"Cancel" otherButtonTitles:nil] show];
            }
        }
        [self reloadSpecifiers];
-           CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)@"com.0xkuj.wamutedbadges", NULL, NULL, NO);
-
-
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)@"com.0xkuj.wamutedbadges", NULL, NULL, NO);
    }]];
    [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel"
                                                        style:UIAlertActionStyleCancel
@@ -119,7 +123,7 @@ UITextField *groupJID;
 
 -(void)removedSpecifier:(PSSpecifier *)specifier
 {
-    NSMutableDictionary *preferences = [NSMutableDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist"];
+    NSMutableDictionary *preferences = [NSMutableDictionary dictionaryWithContentsOfFile:GENERAL_PREFS];
     NSMutableArray *items = [preferences objectForKey:@"items"];
     for (NSDictionary *item in items)
     {
@@ -132,7 +136,7 @@ UITextField *groupJID;
 
     [preferences setValue:items forKey:@"items"];
     NSError *error;
-    if (![preferences writeToURL:[NSURL fileURLWithPath:@"/var/mobile/Library/Preferences/com.0xkuj.wamutedbadges.plist"] error:&error])
+    if (![preferences writeToURL:[NSURL fileURLWithPath:GENERAL_PREFS] error:&error])
     {
         //[[[UIAlertView alloc] initWithTitle:@"Error" message:[@"Failed to save settings. Error:\n" stringByAppendingString:error.localizedDescription] delegate:nil cancelButtonTitle:@"Cancel" otherButtonTitles:nil] show];
     }

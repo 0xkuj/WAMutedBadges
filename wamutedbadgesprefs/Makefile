@@ -1,6 +1,5 @@
 ARCHS = arm64 arm64e
-TARGET := iphone:clang:latest:7.0
-
+export TARGET = iphone:clang:14.5:14.5
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = WAMutedBadgesPrefs
